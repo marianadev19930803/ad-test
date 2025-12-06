@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TimeZoneNinja – Instant Meeting Time Converter</title>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chrono-node@2.7.2/chrono.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script async src="https://js.onclckmn.com/static/onclicka.js" data-admpid="398635"></script>
+  <style>
+    body { background: linear-gradient(to bottom right, #0f172a, #1e293b); min-height: 100vh; }
+    .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.2); }
+  </style>
+</head>
+<body class="text-white">
+  <div class="container mx-auto max-w-5xl p-6">
+    <h1 class="text-5xl font-bold text-center mt-12 mb-4">TimeZoneNinja</h1>
+    <p class="text-center text-xl mb-10 opacity-80">Paste any meeting invite – get a magic link that works for everyone</p>
+
+    <textarea id="input" rows="8" placeholder="Paste your meeting email, Zoom link, or any text with dates/times here...
+Example:
+Let's meet Tuesday at 3pm EST / 12pm PST
+Or Wednesday Dec 10 at 14:00 UTC
+Also works with Google/Outlook invites!" 
+      class="w-full p-5 rounded-xl glass text-white placeholder-gray-400 text-lg focus:outline-none focus:ring-4 focus:ring-cyan-500"></textarea>
+
+    <div class="text-center my-8">
+      <button id="parseBtn" class="px-10 py-4 bg-cyan-500 hover:bg-cyan-400 rounded-full text-xl font-bold transition shadow-lg">
+        Convert & Generate Magic Link
+      </button>
+    </div>
+
+    <div id="result" class="hidden">
+      <div class="glass rounded-2xl p-8 overflow-x-auto">
+        <table id="table" class="w-full text-left"></table>
+      </div>
+
+      <div class="mt-8 text-center">
+        <input type="text" id="magicLink" readonly class="px-6 py-4 glass rounded-l-xl text-lg w-96 inline-block text-center" />
+        <button data-clipboard-target="#magicLink" class="px-8 py-4 bg-green-500 hover:bg-green-400 rounded-r-xl font-bold text-xl">
+          Copy Magic Link
+        </button>
+      </div>
+      <p class="text-center mt-4 opacity-70">Anyone who clicks this link sees the times in THEIR local timezone automatically!</p>
+    </div>
+  </div>
+
+  <script>
+    const { DateTime } = luxon;
+    const cities = [
+      { name: "New York", tz: "America/New_York" },
+      { name: "London", tz: "Europe/London" },
+      { name: "Paris", tz: "Europe/Paris" },
+      { name: "Dubai", tz: "Asia/Dubai" },
+      { name: "Mumbai", tz: "Asia/Kolkata" },
+      { name: "Singapore", tz: "Asia/Singapore" },
+      { name: "Tokyo", tz: "Asia/Tokyo" },
+      { name: "Sydney", tz: "Australia/Sydney" },
+      { name: "São Paulo", tz: "America/Sao_Paulo" },
+      { name: "Los Angeles", tz: "America/Los_Angeles" },
+    ];
+
+    let parsedTimes = [];
+
+    document.getElementById("parseBtn").addEventListener("click", () => {
+      const text = document.getElementById("input").value;
+      if (!text.trim()) return alert("Please paste some text first!");
+
+      // Parse with chrono (very forgiving)
+      const results = chrono.parse(text);
+      if (results.length === 0) return alert("No date/time found. Try a real meeting text!");
+
+      parsedTimes = results.map(r => ({
+        date: DateTime.fromJSDate(r.start.date(), { zone: r.start.isCertain('timezone') ? r.start.get('timezoneOffset')?.toString() : undefined }),
+        text: r.text
+      }));
+
+      renderTable();
+      generateMagicLink();
+      document.getElementById("result").classList.remove("hidden");
+    });
+
+    function renderTable() {
+      const table = document.getElementById("table");
+      table.innerHTML = `
+        <tr class="text-2xl font-bold"><th class="pb-6">Your Local Time →</th>${cities.map(c => `<th class="pb-6 text-right">${c.name}</th>`).join("")}</tr>
+      `;
+
+      parsedTimes.forEach(item => {
+        const local = item.date.setZone(DateTime.local().zoneName);
+        const row = document.createElement("tr");
+        row.className = "border-t border-gray-600";
+
+        const cells = cities.map(city => {
+          const dt = item.date.setZone(city.tz);
+          const formatted = dt.toFormat("cccc LLL d 'at' h:mm a");
+          const highlight = city.tz === DateTime.local().zoneName ? "text-cyan-400 font-bold" : "text-white";
+          return `<td class="py-4 text-right ${highlight}">${formatted}</td>`;
+        });
+
+        row.innerHTML = `
+          <td class="py-4 font-medium text-cyan-300">${local.toFormat("cccc LLL d 'at' h:mm a")} <span class="text-sm opacity-70">(${item.text})</span></td>
+          ${cells.join("")}
+        `;
+        table.appendChild(row);
+      });
+    }
+
+    function generateMagicLink() {
+      const data = btoa(JSON.stringify(parsedTimes.map(t => ({ iso: t.date.toISO(), text: t.text }))));
+      const url = location.origin + location.pathname + "?t=" + data;
+      document.getElementById("magicLink").value = url;
+    }
+
+    // Load from URL if shared
+    const params = new URLSearchParams(location.search);
+    if (params.has("t")) {
+      try {
+        const data = JSON.parse(atob(params.get("t")));
+        parsedTimes = data.map(d => ({
+          date: DateTime.fromISO(d.iso),
+          text: d.text
+        }));
+        document.getElementById("input").value = "Shared meeting times (auto-detected your timezone!)";
+        renderTable();
+        document.getElementById("result").classList.remove("hidden");
+      } catch(e) { console.error(e); }
+    }
+
+    // Clipboard
+    new ClipboardJS("[data-clipboard-target]");
+  </script>
+</body>
+</html>
