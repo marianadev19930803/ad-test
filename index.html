@@ -6,7 +6,6 @@
   <title>TimeZoneNinja – Instant Meeting Time Converter</title>
   <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chrono-node@2.7.2/chrono.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script async src="https://js.onclckmn.com/static/onclicka.js" data-admpid="399427"></script>
   <style>
@@ -39,9 +38,6 @@ Also works with Google/Outlook invites!"
 
       <div class="mt-8 text-center">
         <input type="text" id="magicLink" readonly class="px-6 py-4 glass rounded-l-xl text-lg w-96 inline-block text-center" />
-        <button data-clipboard-target="#magicLink" class="px-8 py-4 bg-green-500 hover:bg-green-400 rounded-r-xl font-bold text-xl">
-          Copy Magic Link
-        </button>
       </div>
       <p class="text-center mt-4 opacity-70">Anyone who clicks this link sees the times in THEIR local timezone automatically!</p>
     </div>
